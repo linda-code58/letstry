@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小一數學：比較長度遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
+        
+        body {
+            font-family: 'Varela Round', 'Microsoft JhengHei', sans-serif;
+            background-color: #f0fdf4;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .grid-bg {
+            background-image: 
+                linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+                linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+            background-size: 10% 100%;
+        }
+
+        /* 簡單的動畫效果 */
+        @keyframes pop {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .pop-anim {
+            animation: pop 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .paperclip-bg {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40'%3E%3Cpath d='M80,10 C88,10 90,15 90,20 C90,25 88,30 80,30 L20,30 C10,30 10,20 20,20 L75,20 C78,20 80,18 80,15 C80,12 78,10 75,10 L30,10' fill='none' stroke='%239ca3af' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-size: 10% 100%;
+            background-repeat: repeat-x;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-4 px-2">
+
+    <!-- 遊戲標題與狀態 -->
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-lg p-4 mb-4 flex justify-between items-center border-4 border-green-400">
+        <div>
+            <h1 class="text-2xl font-bold text-green-600 flex items-center gap-2">
+                📏 多樣比較小遊戲
+            </h1>
+            <p class="text-gray-500 text-sm mt-1" id="level-desc">第一關 (淺)：起點相同，找數量</p>
+        </div>
+        <div class="flex gap-4">
+            <div class="bg-blue-100 px-4 py-2 rounded-xl text-blue-700 font-bold border-2 border-blue-300">
+                關卡: <span id="level-display" class="text-xl">1</span> / 3
+            </div>
+            <div class="bg-yellow-100 px-4 py-2 rounded-xl text-yellow-700 font-bold border-2 border-yellow-300">
+                星: <span id="score-display" class="text-xl">0</span> ⭐
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲主要區域 -->
+    <div class="w-full max-w-3xl bg-white rounded-3xl shadow-xl p-4 sm:p-6 mb-4 relative overflow-hidden border-4 border-blue-400 slide-in" id="game-container">
+        
+        <!-- 成功/失敗提示遮罩 -->
+        <div id="feedback-overlay" class="absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center hidden rounded-2xl">
+            <div id="feedback-icon" class="text-6xl mb-4">🎉</div>
+            <h2 id="feedback-text" class="text-4xl font-bold text-green-500 mb-6">答對了！</h2>
+            <button id="next-btn" class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95">
+                下一題 ➔
+            </button>
+        </div>
+
+        <!-- 遊戲結束畫面 -->
+        <div id="game-over-overlay" class="absolute inset-0 bg-yellow-50 z-30 flex flex-col items-center justify-center hidden rounded-2xl">
+            <div class="text-7xl mb-4">🏆</div>
+            <h2 class="text-4xl font-bold text-yellow-600 mb-2">太棒了！</h2>
+            <p class="text-xl text-gray-600 mb-6">你完成了所有關卡！</p>
+            <button onclick="startGame()" class="bg-yellow-500 hover:bg-yellow-600 text-white text-2xl font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95">
+                再玩一次 ↺
+            </button>
+        </div>
+
+        <!-- 畫布區域 (10個格子的網格) -->
+        <div class="relative w-full aspect-[2/1] sm:aspect-[3/1] bg-blue-50 rounded-xl border-2 border-blue-200 mb-6 p-2 sm:p-4">
+            <!-- 網格背景 -->
+            <div class="absolute top-0 left-0 w-full h-full grid grid-cols-10 opacity-30 pointer-events-none">
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="border-r-2 border-dashed border-blue-300 h-full"></div>
+                <div class="h-full"></div>
+            </div>
+
+            <!-- 萬字夾比例尺 -->
+            <div class="absolute bottom-2 left-0 w-full h-[15%] sm:h-[20%] flex px-[2%]">
+                <!-- 動態生成萬字夾 -->
+                <div class="w-full h-full flex" id="paperclip-scale">
+                    <!-- JS會填入10個萬字夾 -->
+                </div>
+            </div>
+
+            <!-- 物品擺放區 -->
+            <div class="absolute top-[10%] left-0 w-full h-[60%] grid grid-cols-10 grid-rows-2 gap-2 px-[2%]" id="objects-area">
+                <!-- Object A -->
+                <div id="obj-a-container" class="row-start-1 relative flex items-center transition-all duration-500">
+                    <!-- SVG 由 JS 生成 -->
+                </div>
+                <!-- Object B -->
+                <div id="obj-b-container" class="row-start-2 relative flex items-center transition-all duration-500">
+                    <!-- SVG 由 JS 生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 互動答題區 -->
+        <div class="bg-gray-50 p-4 sm:p-6 rounded-2xl border-2 border-gray-200">
+            <!-- 題目句子 -->
+            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xl sm:text-2xl font-bold text-gray-700">
+                
+                <div class="flex items-center gap-1 bg-white px-3 py-1 rounded-lg shadow-sm">
+                    <span id="label-a-icon">🖍️</span> 
+                    <span id="label-a-name">藍筆</span>
+                </div>
+                
+                <span>比</span>
+                
+                <div class="flex items-center gap-1 bg-white px-3 py-1 rounded-lg shadow-sm">
+                    <span id="label-b-icon">✏️</span> 
+                    <span id="label-b-name">紅筆</span>
+                </div>
+
+                <!-- 比較字眼 選擇 -->
+                <div class="flex bg-white rounded-xl shadow-inner p-1 border-2 border-gray-200" id="compare-toggle">
+                    <button class="compare-btn px-4 py-2 rounded-lg text-gray-400 transition-colors" data-val="greater" id="btn-greater">
+                        <span id="text-greater">長</span> <span class="text-sm">↗</span>
+                    </button>
+                    <button class="compare-btn px-4 py-2 rounded-lg text-gray-400 transition-colors" data-val="lesser" id="btn-lesser">
+                        <span id="text-lesser">短</span> <span class="text-sm">↘</span>
+                    </button>
+                </div>
+
+                <!-- 數字選擇 -->
+                <div class="flex items-center gap-2">
+                    <div class="bg-white border-b-4 border-gray-400 min-w-[3rem] h-[3rem] flex items-center justify-center text-blue-600 text-3xl font-black rounded-t-lg transition-all" id="selected-number">
+                        ?
+                    </div>
+                    <span id="unit-name">個萬字夾</span>
+                    <div id="unit-icon-small" class="flex items-center h-8">
+                        <!-- SVG圖案將由JS動態生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 數字鍵盤 -->
+            <div class="mt-6 flex justify-center flex-wrap gap-2 sm:gap-4" id="number-pad">
+                <!-- 按鈕由 JS 產生 -->
+            </div>
+
+            <!-- 確認按鈕 -->
+            <div class="mt-8 flex justify-center">
+                <button id="submit-btn" class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:transform-none text-white text-2xl font-bold py-3 px-12 rounded-full shadow-[0_6px_0_#2563eb] disabled:shadow-[0_6px_0_#9ca3af] transition-transform active:translate-y-[4px] active:shadow-[0_2px_0_#2563eb]" disabled>
+                    確定 ✔
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 簡單說明 -->
+    <div class="text-gray-500 text-sm text-center">
+        請點擊「長/短」及下方數字按鈕完成句子。<br>
+        為香港小一數學度身訂造。
+    </div>
+
+    <script>
+        // === 遊戲設定 ===
+        const TOTAL_COLUMNS = 10;
+        const QUESTIONS_PER_LEVEL = 3;
+        
+        let gameState = {
+            level: 1,      // 1:淺, 2:中, 3:難
+            questionNum: 1, // 該關卡的第幾題 (1 to 3)
+            totalScore: 0,
+            
+            currentCategory: null,
+            // 當前題目資料
+            objA: { name: '', icon: '', start: 0, len: 0, color: '' },
+            objB: { name: '', icon: '', start: 0, len: 0, color: '' },
+            correctCompare: '', // 'greater' or 'lesser'
+            correctDiff: 0,
+            
+            // 玩家選擇
+            userCompare: '', // 'greater' or 'lesser'
+            userNum: null
+        };
+
+        // 視覺資源擴展，修正為適合橫向比較的概念：長短、多少、遠近
+        const categories = [
+            {
+                type: 'length',
+                pair: ['長', '短'],
+                unitName: '個萬字夾',
+                unitSvg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' class="w-full h-full object-contain"><path d='M80,10 C88,10 90,15 90,20 C90,25 88,30 80,30 L20,30 C10,30 10,20 20,20 L75,20 C78,20 80,18 80,15 C80,12 78,10 75,10 L30,10' fill='none' stroke='#9ca3af' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>`,
+                unitSvgSmall: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' class="h-8 w-16"><path d='M80,10 C88,10 90,15 90,20 C90,25 88,30 80,30 L20,30 C10,30 10,20 20,20 L75,20 C78,20 80,18 80,15 C80,12 78,10 75,10 L30,10' fill='none' stroke='#4b5563' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/></svg>`,
+                items: [
+                    { name: '藍鉛筆', icon: '✏️', color: '#3b82f6', shape: 'pencil' },
+                    { name: '紅蠟筆', icon: '🖍️', color: '#ef4444', shape: 'crayon' },
+                    { name: '綠間尺', icon: '📏', color: '#22c55e', shape: 'ruler' },
+                    { name: '黃畫筆', icon: '🖌️', color: '#eab308', shape: 'pencil' }
+                ]
+            },
+            {
+                type: 'quantity',
+                pair: ['多', '少'],
+                unitName: '粒',
+                unitSvg: `<div class="w-full h-full border-r-2 border-dashed border-gray-200 flex items-center justify-center opacity-50"><div class="w-4 h-4 rounded-full bg-gray-200"></div></div>`,
+                unitSvgSmall: `<div class="w-5 h-5 rounded-full bg-gray-400 mx-2"></div>`,
+                items: [
+                    { name: '紅蘋果', icon: '🍎', shape: 'discrete' },
+                    { name: '香橙', icon: '🍊', shape: 'discrete' },
+                    { name: '糖果', icon: '🍬', shape: 'discrete' },
+                    { name: '曲奇', icon: '🍪', shape: 'discrete' }
+                ]
+            },
+            {
+                type: 'distance',
+                pair: ['遠', '近'],
+                unitName: '步',
+                unitSvg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' class="w-full h-full"><line x1='20' y1='20' x2='80' y2='20' stroke='#d1d5db' stroke-width='4' stroke-dasharray='8 8' stroke-linecap='round'/><polygon points='80,12 92,20 80,28' fill='#d1d5db'/></svg>`,
+                unitSvgSmall: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' class="h-8 w-16"><line x1='10' y1='20' x2='70' y2='20' stroke='#6b7280' stroke-width='6' stroke-dasharray='10 10' stroke-linecap='round'/><polygon points='70,8 90,20 70,32' fill='#6b7280'/></svg>`,
+                items: [
+                    { name: '紅車', icon: '🚗', shape: 'distance' },
+                    { name: '藍車', icon: '🚙', shape: 'distance' },
+                    { name: '的士', icon: '🚕', shape: 'distance' }
+                ]
+            }
+        ];
+
+        // === DOM 元素 ===
+        const els = {
+            levelDisplay: document.getElementById('level-display'),
+            levelDesc: document.getElementById('level-desc'),
+            scoreDisplay: document.getElementById('score-display'),
+            paperclipScale: document.getElementById('paperclip-scale'),
+            objAContainer: document.getElementById('obj-a-container'),
+            objBContainer: document.getElementById('obj-b-container'),
+            labelAIcon: document.getElementById('label-a-icon'),
+            labelAName: document.getElementById('label-a-name'),
+            labelBIcon: document.getElementById('label-b-icon'),
+            labelBName: document.getElementById('label-b-name'),
+            compareBtns: document.querySelectorAll('.compare-btn'),
+            textGreater: document.getElementById('text-greater'),
+            textLesser: document.getElementById('text-lesser'),
+            unitName: document.getElementById('unit-name'),
+            unitIconSmall: document.getElementById('unit-icon-small'),
+            selectedNumber: document.getElementById('selected-number'),
+            numberPad: document.getElementById('number-pad'),
+            submitBtn: document.getElementById('submit-btn'),
+            feedbackOverlay: document.getElementById('feedback-overlay'),
+            feedbackIcon: document.getElementById('feedback-icon'),
+            feedbackText: document.getElementById('feedback-text'),
+            nextBtn: document.getElementById('next-btn'),
+            gameOverOverlay: document.getElementById('game-over-overlay')
+        };
+
+        // === 初始化遊戲 ===
+        function startGame() {
+            gameState.level = 1;
+            gameState.questionNum = 1;
+            gameState.totalScore = 0;
+            els.gameOverOverlay.classList.add('hidden');
+            updateUI();
+            setupNumberPad();
+            generateQuestion();
+        }
+
+        function setupScale() {
+            els.paperclipScale.innerHTML = '';
+            const svg = gameState.currentCategory ? gameState.currentCategory.unitSvg : categories[0].unitSvg;
+            for (let i = 0; i < TOTAL_COLUMNS; i++) {
+                const clip = document.createElement('div');
+                clip.className = "flex-1 h-full relative";
+                clip.innerHTML = svg;
+                els.paperclipScale.appendChild(clip);
+            }
+        }
+
+        function setupNumberPad() {
+            els.numberPad.innerHTML = '';
+            // 產生 1 到 7 的按鈕 (最大差異大概是 7)
+            for (let i = 1; i <= 7; i++) {
+                const btn = document.createElement('button');
+                btn.className = "num-btn bg-white border-2 border-gray-300 text-gray-700 text-2xl font-bold w-12 h-12 sm:w-14 sm:h-14 rounded-xl shadow-sm hover:bg-blue-50 transition-colors active:scale-95";
+                btn.innerText = i;
+                btn.onclick = () => selectNumber(i, btn);
+                els.numberPad.appendChild(btn);
+            }
+        }
+
+        // === 產生題目 ===
+        function generateQuestion() {
+            // 重設玩家選擇
+            gameState.userCompare = '';
+            gameState.userNum = null;
+            els.selectedNumber.innerText = '?';
+            els.selectedNumber.classList.remove('text-blue-600', 'pop-anim');
+            els.selectedNumber.classList.add('text-gray-400');
+            
+            // 隨機選擇主題 (長短、厚薄、闊窄)
+            const catIdx = Math.floor(Math.random() * categories.length);
+            gameState.currentCategory = categories[catIdx];
+            
+            // 更新介面字眼及單位圖案
+            els.textGreater.innerText = gameState.currentCategory.pair[0];
+            els.textLesser.innerText = gameState.currentCategory.pair[1];
+            els.unitName.innerText = gameState.currentCategory.unitName;
+            els.unitIconSmall.innerHTML = gameState.currentCategory.unitSvgSmall;
+            setupScale();
+
+            els.compareBtns.forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white', 'shadow-md', 'font-bold');
+                btn.classList.add('text-gray-400');
+            });
+            document.querySelectorAll('.num-btn').forEach(b => {
+                b.classList.remove('bg-blue-500', 'text-white', 'border-blue-600');
+                b.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+            });
+
+            // 隨機選兩個不同的物件
+            const itemsList = gameState.currentCategory.items;
+            let itemAIdx = Math.floor(Math.random() * itemsList.length);
+            let itemBIdx;
+            do {
+                itemBIdx = Math.floor(Math.random() * itemsList.length);
+            } while (itemBIdx === itemAIdx);
+
+            let lenA, lenB, startA = 0, startB = 0;
+
+            if (gameState.level === 1) {
+                // 第一關：起點=0，長度相差1~3
+                do {
+                    lenA = Math.floor(Math.random() * 5) + 3; // 3 to 7
+                    lenB = Math.floor(Math.random() * 5) + 3;
+                } while (lenA === lenB || Math.abs(lenA - lenB) > 3);
+            } 
+            else if (gameState.level === 2) {
+                // 第二關：起點=0，長度相差1~5
+                do {
+                    lenA = Math.floor(Math.random() * 7) + 2; // 2 to 8
+                    lenB = Math.floor(Math.random() * 7) + 2;
+                } while (lenA === lenB);
+            }
+            else {
+                // 第三關：起點不一定=0
+                do {
+                    startA = Math.floor(Math.random() * 4); // 0 to 3
+                    lenA = Math.floor(Math.random() * 5) + 2; // 2 to 6
+                    startB = Math.floor(Math.random() * 4);
+                    lenB = Math.floor(Math.random() * 5) + 2;
+                } while (lenA === lenB || (startA + lenA > 10) || (startB + lenB > 10) || (startA===0 && startB===0)); 
+                // 確保長度不同，且不超過邊界，且至少有一個起點不是0
+            }
+
+            gameState.objA = { ...itemsList[itemAIdx], start: startA, len: lenA };
+            gameState.objB = { ...itemsList[itemBIdx], start: startB, len: lenB };
+            
+            gameState.correctDiff = Math.abs(lenA - lenB);
+            gameState.correctCompare = lenA > lenB ? 'greater' : 'lesser';
+
+            // 第一關自動填入長/短/厚/薄等
+            if (gameState.level === 1) {
+                selectCompare(gameState.correctCompare);
+                els.compareBtns.forEach(btn => btn.style.pointerEvents = 'none'); // 鎖定
+            } else {
+                els.compareBtns.forEach(btn => btn.style.pointerEvents = 'auto'); // 解鎖
+            }
+
+            renderObjects();
+            checkSubmitState();
+        }
+
+        // === 渲染物件 (使用 SVG 畫出簡單形狀) ===
+        function renderObjects() {
+            els.labelAIcon.innerText = gameState.objA.icon;
+            els.labelAName.innerText = gameState.objA.name;
+            els.labelBIcon.innerText = gameState.objB.icon;
+            els.labelBName.innerText = gameState.objB.name;
+
+            // 根據起點和長度設定 Grid Column
+            els.objAContainer.style.gridColumn = `${gameState.objA.start + 1} / span ${gameState.objA.len}`;
+            els.objBContainer.style.gridColumn = `${gameState.objB.start + 1} / span ${gameState.objB.len}`;
+
+            els.objAContainer.innerHTML = getShapeSVG(gameState.objA);
+            els.objBContainer.innerHTML = getShapeSVG(gameState.objB);
+        }
+
+        function getShapeSVG(obj) {
+            // 回傳能自動填滿容器寬高的 SVG
+            const c = obj.color;
+            if (obj.shape === 'pencil' || obj.shape === 'crayon') {
+                return `
+                <svg viewBox="0 0 100 20" preserveAspectRatio="none" class="w-full h-[60%] filter drop-shadow-md">
+                    <!-- 筆尖 -->
+                    <polygon points="0,10 15,3 15,17" fill="#fde68a" />
+                    <polygon points="0,10 5,7 5,13" fill="${c}" />
+                    <!-- 筆身 -->
+                    <rect x="15" y="3" width="70" height="14" fill="${c}" rx="2" />
+                    <!-- 裝飾線 -->
+                    <line x1="15" y1="7" x2="85" y2="7" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                    <line x1="15" y1="13" x2="85" y2="13" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
+                    <!-- 筆尾/擦膠 -->
+                    <rect x="86" y="3" width="14" height="14" fill="${obj.shape==='pencil' ? '#fca5a5' : c}" rx="2"/>
+                </svg>`;
+            } else if (obj.shape === 'discrete') {
+                // 多少 (Quantity) - 顯示對應數量的獨立圖案
+                let html = '<div class="w-full h-full flex items-center justify-around">';
+                for(let i=0; i<obj.len; i++) {
+                    html += `<span class="text-3xl sm:text-4xl drop-shadow-sm">${obj.icon}</span>`;
+                }
+                html += '</div>';
+                return html;
+            } else if (obj.shape === 'distance') {
+                // 遠近 (Distance) - 顯示車子與走過的軌跡 (transform -scale-x-100 令車子向右)
+                return `
+                <div class="w-full h-full flex items-center justify-end relative">
+                    <div class="absolute left-2 w-[calc(100%-3rem)] h-0 border-t-4 border-dashed border-gray-400 opacity-50 top-1/2"></div>
+                    <span class="text-4xl sm:text-5xl z-10 drop-shadow-md transform -scale-x-100">${obj.icon}</span>
+                </div>`;
+            } else {
+                // 間尺
+                return `
+                <svg viewBox="0 0 100 20" preserveAspectRatio="none" class="w-full h-[60%] filter drop-shadow-md">
+                    <rect x="0" y="2" width="100" height="16" fill="${c}" rx="1" opacity="0.8"/>
+                    <!-- 刻度 -->
+                    <line x1="10" y1="2" x2="10" y2="10" stroke="white" stroke-width="1"/>
+                    <line x1="30" y1="2" x2="30" y2="10" stroke="white" stroke-width="1"/>
+                    <line x1="50" y1="2" x2="50" y2="10" stroke="white" stroke-width="1"/>
+                    <line x1="70" y1="2" x2="70" y2="10" stroke="white" stroke-width="1"/>
+                    <line x1="90" y1="2" x2="90" y2="10" stroke="white" stroke-width="1"/>
+                </svg>`;
+            }
+        }
+
+        // === 玩家互動處理 ===
+        els.compareBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if(gameState.level === 1) return; // 第一關不能改
+                selectCompare(e.target.closest('button').dataset.val);
+            });
+        });
+
+        function selectCompare(val) {
+            gameState.userCompare = val;
+            els.compareBtns.forEach(btn => {
+                if (btn.dataset.val === val) {
+                    btn.classList.add('bg-blue-500', 'text-white', 'shadow-md', 'font-bold');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('bg-blue-500', 'text-white', 'shadow-md', 'font-bold');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+            checkSubmitState();
+        }
+
+        function selectNumber(num, btnElement) {
+            gameState.userNum = num;
+            
+            // 更新 UI
+            document.querySelectorAll('.num-btn').forEach(b => {
+                b.classList.remove('bg-blue-500', 'text-white', 'border-blue-600');
+                b.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+            });
+            btnElement.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+            btnElement.classList.add('bg-blue-500', 'text-white', 'border-blue-600');
+
+            els.selectedNumber.innerText = num;
+            els.selectedNumber.classList.remove('text-gray-400');
+            els.selectedNumber.classList.add('text-blue-600');
+            
+            // 觸發動畫
+            els.selectedNumber.classList.remove('pop-anim');
+            void els.selectedNumber.offsetWidth; // trigger reflow
+            els.selectedNumber.classList.add('pop-anim');
+
+            checkSubmitState();
+        }
+
+        function checkSubmitState() {
+            if (gameState.userCompare !== '' && gameState.userNum !== null) {
+                els.submitBtn.disabled = false;
+            } else {
+                els.submitBtn.disabled = true;
+            }
+        }
+
+        // === 提交答案 ===
+        els.submitBtn.addEventListener('click', () => {
+            const isCompareCorrect = gameState.userCompare === gameState.correctCompare;
+            const isNumCorrect = gameState.userNum === gameState.correctDiff;
+
+            els.feedbackOverlay.classList.remove('hidden');
+            els.feedbackOverlay.classList.add('flex');
+
+            if (isCompareCorrect && isNumCorrect) {
+                // 答對
+                gameState.totalScore++;
+                els.scoreDisplay.innerText = gameState.totalScore;
+                
+                els.feedbackIcon.innerText = '✨🎉✨';
+                els.feedbackText.innerText = '答對了！好叻呀！';
+                els.feedbackText.className = 'text-4xl font-bold text-green-500 mb-6';
+                els.nextBtn.innerText = '下一題 ➔';
+                els.nextBtn.className = 'bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95';
+                
+                els.nextBtn.onclick = () => {
+                    els.feedbackOverlay.classList.add('hidden');
+                    nextQuestion();
+                };
+            } else {
+                // 答錯
+                els.feedbackIcon.innerText = '🤔';
+                let errorMsg = '再試一次！';
+                if (!isCompareCorrect && isNumCorrect) {
+                    const compareWord = gameState.correctCompare === 'greater' ? gameState.currentCategory.pair[0] : gameState.currentCategory.pair[1];
+                    errorMsg = `數量對了，但邊個比較「${compareWord}」呢？`;
+                } else if (isCompareCorrect && !isNumCorrect) {
+                    errorMsg = `「${gameState.currentCategory.pair[0]}/${gameState.currentCategory.pair[1]}」對了，但數量好像不對喔！`;
+                }
+
+                els.feedbackText.innerText = errorMsg;
+                els.feedbackText.className = 'text-2xl font-bold text-red-500 mb-6 text-center px-4';
+                els.nextBtn.innerText = '重新作答 ↺';
+                els.nextBtn.className = 'bg-yellow-500 hover:bg-yellow-600 text-white text-2xl font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95';
+                
+                els.nextBtn.onclick = () => {
+                    els.feedbackOverlay.classList.add('hidden');
+                };
+            }
+        });
+
+        function nextQuestion() {
+            gameState.questionNum++;
+            
+            if (gameState.questionNum > QUESTIONS_PER_LEVEL) {
+                // 進階
+                gameState.level++;
+                gameState.questionNum = 1;
+                
+                if (gameState.level > 3) {
+                    // 遊戲結束
+                    els.gameOverOverlay.classList.remove('hidden');
+                    return;
+                }
+            }
+            
+            updateUI();
+            generateQuestion();
+        }
+
+        function updateUI() {
+            els.levelDisplay.innerText = gameState.level;
+            els.scoreDisplay.innerText = gameState.totalScore;
+            
+            if (gameState.level === 1) {
+                els.levelDesc.innerText = '第一關 (淺)：起點相同，找數量';
+            } else if (gameState.level === 2) {
+                els.levelDesc.innerText = '第二關 (中)：起點相同，選比較詞及數量';
+            } else if (gameState.level === 3) {
+                els.levelDesc.innerText = '第三關 (難)：起點不同，請小心數算！';
+            }
+        }
+
+        // 啟動遊戲
+        window.onload = startGame;
+
+    </script>
+</body>
+</html>
